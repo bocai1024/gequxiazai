@@ -1,4 +1,8 @@
+import time
+
 import pygetwindow as gw
+import timer
+
 import tools
 import logging
 import json
@@ -10,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 PROGRESS_FILE = "progress.json"
 
-def gequxiazai(gequmname):
+def gequxiazai(gequmname, weizhi_jilu):
     """
     酷我音乐歌曲下载函数
 
@@ -29,19 +33,32 @@ def gequxiazai(gequmname):
 
         kuwo = kuwo_windows[0]  # 获取第一个匹配的窗口
         logger.info(f"找到酷我音乐窗口: 位置({kuwo.left}, {kuwo.top}), 大小({kuwo.width}x{kuwo.height})")
-
+        kuwo.activate()
         # 执行一系列点击操作
         operations = [
-            {"x": kuwo.left + 265, "y": kuwo.top + 26, "text": gequmname, "action": "搜索歌曲"},
+            {"x": kuwo.left + 265, "y": kuwo.top + 26, "text": gequmname, "action": "输入歌曲名"},
+            {"x": kuwo.left + 596, "y": kuwo.top + 30, "action": "搜索歌曲"},
             {"x": kuwo.left + 554, "y": kuwo.top + 244, "action": "点击搜索结果"},
-            {"x": kuwo.left + 357, "y": kuwo.top + 255, "action": "点击下载按钮"},
-            {"x": kuwo.left + 384, "y": kuwo.top + 500, "action": "确认下载"}
+            {"x": kuwo.left + 357, "y": kuwo.top + 255, "action": "点击收藏按钮"}
         ]
+        mouse_x_now, mouse_y_now = tools.pyautogui.position()
 
         for i, op in enumerate(operations):
             try:
                 logger.info(f"执行第{i + 1}步操作: {op['action']}")
-
+                if i == 2:
+                    time.sleep(0.5)
+                    zhaodao_mode, op["x"], op["y"] = tools.find_image_position("geshoubiaoqian.png")
+                    op["x"] = op["x"] - 31
+                    op["y"] = op["y"] + 33
+                    if weizhi_jilu:
+                        if mouse_x_now - kuwo.left + 596 > 50 or mouse_x_now - kuwo.left + 30 < -50:
+                            raise Exception("鼠标位置超出窗口范围")
+                elif i == 3:
+                    time.sleep(0.5)
+                    zhaodao_mode, op["x"], op["y"] = tools.find_image_position("shoucang.png")
+                    op["x"] = op["x"] + 72
+                    op["y"] = op["y"]
                 if 'text' in op:
                     # 带文本输入的操作
                     tools.click_at_shuru(op["x"], op["y"], op["text"])
@@ -50,7 +67,8 @@ def gequxiazai(gequmname):
                     tools.click_at_shuru(op["x"], op["y"])
 
                 logger.info(f"第{i + 1}步操作完成: {op['action']}")
-
+                # if not weizhi_jilu and i != 2:
+                #     queren = input("请按回车键确认下载")
             except Exception as e:
                 logger.error(f"第{i + 1}步操作失败: {op['action']}, 错误: {str(e)}")
                 return False
@@ -142,14 +160,16 @@ def process_song_file(file_path):
     """
     total_lines = sum(1 for line in open(file_path, 'r', encoding='utf-8'))
     start_line = load_progress(file_path)
-
+    count_x = False
     print(f"文件总行数: {total_lines}")
     print(f"从第 {start_line + 1} 行开始处理")
 
     for line_num, song_name in read_file_with_progress(file_path):
         if song_name.strip():  # 跳过空行
+
             print(f"处理第 {line_num + 1} 行: {song_name}")
-            success = gequxiazai(song_name)
+            success = gequxiazai(song_name, count_x)
+            count_x = True
             if success:
                 print(f"成功处理: {song_name}")
             else:
@@ -164,3 +184,4 @@ def process_song_file(file_path):
 
 if __name__ == '__main__':
     process_song_file('songs_smart_deduplicated.txt')
+    # gequxiazai("七里香", False)
